@@ -1,1 +1,53 @@
+version: "3.9"
+
+services:
+
+  # 1️⃣ Streaming / message bus
+  redpanda:
+    image: redpandadata/redpanda:v24.1
+    command: >-
+      redpanda start
+      --smp 1
+      --memory 512M
+      --overprovisioned
+      --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      --advertise-kafka-addr OUTSIDE://redpanda:9092
+    ports:
+      - "9092:9092"     # Kafka API
+      - "8081:8081"     # Redpanda Console
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  # 2️⃣ Real-time transformer (Faust → DuckDB upsert)
+  consumer_faust:
+    build: ./streaming/consumer_faust
+    environment:
+      - BROKER_URL=kafka://redpanda:9092
+      - WAREHOUSE_PATH=/app/data/warehouse.duckdb
+    volumes:
+      - ./data:/app/data
+    depends_on: [ redpanda ]
+
+  # 3️⃣ Batch transformer (dbt-duckdb)
+  dbt_runner:
+    build: ./dbt
+    environment:
+      - WAREHOUSE_PATH=/app/data/warehouse.duckdb
+    volumes:
+      - ./dbt:/app/dbt
+      - ./data:/app/data
+    depends_on: [ consumer_faust ]
+
+  # 4️⃣ Notebook / ad-hoc exploration
+  jupyter:
+    image: jupyter/base-notebook:lab-4.2.0
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/home/jovyan/data
+
+volumes:
+  redpanda-data:
 
