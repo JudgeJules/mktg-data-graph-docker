@@ -1,1 +1,4 @@
+faust-streaming==0.10.22
+duckdb==0.10.0
+pyarrow>=16.0.0        # required by DuckDB for Parquet / Arrow
 
